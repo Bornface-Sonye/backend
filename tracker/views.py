@@ -9,12 +9,13 @@ from django.utils.crypto import get_random_string
 
 from django.http import Http404
 
+from django.contrib import messages
+
 import re
 import pandas as pd
 
 from django.db.models import Q
 
-from django.contrib import messages
 from .utils import generate_unique_complaint_code
 
 from .models import (
@@ -127,7 +128,7 @@ class MissingMarkSelectView(View):
             return redirect('student')
 
         return render(request, 'post_complaint.html', {'form': form})
-    
+
 
 class SignUpView(View):
     template_name = 'signup.html'
@@ -199,7 +200,7 @@ class LogoutView(View):
     def get(self, request, *args, **kwargs):
         logout(request)  # Use logout directly
         return redirect('login')  # Redirect to the login page or another appropriate page
-    
+
 class ResetPasswordView(View):
     template_name = 'reset_password.html'
     form_class = PasswordResetForm
@@ -308,7 +309,7 @@ class COD_DashboardView(View):
         unit_ids = lecturer_unit_offerings.values_list('unit', flat=True).distinct()
         total_units_for_lecturer = unit_ids.count()
 
-        # Complaints related to those unit offerings        
+        # Complaints related to those unit offerings
         related_complaints_count = Complaint.objects.filter(
             unit_offering__unit__department=department
         ).count()
@@ -426,7 +427,7 @@ class Lecturer_DashboardView(View):
         unit_ids = lecturer_unit_offerings.values_list('unit', flat=True).distinct()
         total_units_for_lecturer = unit_ids.count()
 
-        
+
         # Complaints related to those unit offerings
         related_complaints_count = Complaint.objects.filter(assigned_lecturer=lecturer).count()
 
@@ -579,7 +580,7 @@ class ExamComplaintsListView(ListView):
         username = self.request.session.get('username')
         if not username:
             return redirect('login')
-        
+
         lecturer = Lecturer.objects.filter(username=username).first()
         if lecturer:
             return Complaint.objects.filter(assigned_lecturer=lecturer, resolved=False)
@@ -634,7 +635,7 @@ class ExamRespondView(FormView):
         messages.error(self.request, "There was an error submitting the response.")
         return self.render_to_response(self.get_context_data(form=form))
 
-                                       
+
 class LecturerComplaintsListView(ListView):
     model = Complaint
     template_name = 'lecturer_complaints.html'
@@ -645,7 +646,7 @@ class LecturerComplaintsListView(ListView):
         username = self.request.session.get('username')
         if not username:
             return redirect('login')
-        
+
         lecturer = Lecturer.objects.filter(username=username).first()
         if lecturer:
             return Complaint.objects.filter(assigned_lecturer=lecturer, resolved=False)
@@ -714,60 +715,57 @@ class CODResponseListView(View):
             # Get responses that are not approved by the COD
             responses = Response.objects.filter(unit_offering__unit__department=lecturer.department, approved_by_cod=False)
             return render(request, self.template_name, {'responses': responses})
-        
+
         messages.error(request, "You do not have permission to access this page.")
         return redirect('login')
-
 
 class CODApproveResponseView(View):
     form_class = CODCommentForm
     template_name = 'cod_approve_response.html'
 
-    def get(self, request, response_id):
-        # Ensure the user is logged in and is a COD
+    def post(self, request, response_id):
         username = request.session.get('username')
         if not username:
             return redirect('login')
 
-        lecturer = Lecturer.objects.filter(username=username).first()
-        if lecturer and lecturer.role == 'COD':
-            # Get the response related to the complaint code
-            response = Response.objects.filter(response_id=response_id).first()
-            if response and not response.approved_by_cod:
-                form = self.form_class()
-                return render(request, self.template_name, {'form': form, 'response': response})
-            messages.error(request, "This response has already been approved or does not exist.")
+        lecturer = Lecturer.objects.filter(username=username, role='COD').first()
+        if not lecturer:
+            messages.error(request, "You do not have permission to access this page.")
+            return redirect('login')
+
+        response = get_object_or_404(Response, response_id=response_id)
+
+        if response.approved_by_cod:
+            messages.info(request, "This response has already been approved.")
             return redirect('cod-responses-list')
 
-        messages.error(request, "You do not have permission to access this page.")
-        return redirect('login')
+        form = self.form_class(request.POST)
+        if form.is_valid():
+            response.comment_by_cod = form.cleaned_data['comment']
+            response.approved_by_cod = True
+            response.save()
 
-    def post(self, request, response_id):
-        # Ensure the user is logged in and is a COD
-        username = request.session.get('username')
-        if not username:
-            return redirect('login')
+            student = response.student
+            full_name = f"{student.first_name} {student.last_name}"
+            unit_code = response.unit_offering.unit.unit_code
+            subject = "Your Complaint Resolved Successfully"
+            message = (
+                f"Hello, {full_name},\n\n"
+                f"Your complaint of Missing mark on {unit_code} was received and marks "
+                f"have been recorded and approved by your Department Chairman.\n\n"
+                "Thank you for trusting Missing Mark Tracker."
+            )
+            from_email = settings.EMAIL_HOST_USER  # Updated from DEFAULT_FROM_EMAILsettings.EMAIL_HOST_USER
+            recipient_list = [student.email_address]
 
-        lecturer = Lecturer.objects.filter(username=username).first()
-        if lecturer and lecturer.role == 'COD':
-            # Get the response related to the response id
-            response = Response.objects.filter(response_id=response_id).first()
-            if response and not response.approved_by_cod:
-                form = self.form_class(request.POST)
-                if form.is_valid():
-                    # Add the COD comment and update the approval status
-                    response.comment_by_cod = form.cleaned_data['comment']
-                    response.approved_by_cod = True
-                    response.save()
+            send_mail(subject, message, from_email, recipient_list, fail_silently=False)
 
-                    messages.success(request, "Response approved successfully.")
-                    return redirect('cod-responses-list')
-                else:
-                    messages.error(request, "There was an error with your submission.")
-                    return render(request, self.template_name, {'form': form, 'response': response})
+            messages.success(request, "Response approved and student notified successfully.")
+            return redirect('cod-responses-list')
+        else:
+            messages.error(request, "There was an error with your submission.")
+            return render(request, self.template_name, {'form': form, 'response': response})
 
-        messages.error(request, "You do not have permission to access this page.")
-        return redirect('login')
 
 class ExamOfficerApprovedResponsesView(ListView):
     model = Response
@@ -777,21 +775,21 @@ class ExamOfficerApprovedResponsesView(ListView):
     def get_queryset(self):
         # Check if the username is in the session
         username = self.request.session.get('username')
-        
+
         if not username:
             # If username is not in session, redirect to login
             return redirect('login')
-        
+
         try:
             # Retrieve the lecturer using the username from session
             lecturer = Lecturer.objects.filter(username=username).first()
         except Lecturer.DoesNotExist:
             raise Http404("Lecturer not found")
-        
+
         # Check if the user is an Exam Officer
         if lecturer.role != 'Exam Officer':
             raise Http404("You are not authorized to access this page.")
-        
+
         # Retrieve the department and the school the Exam Officer belongs to
         department = lecturer.department
         school = department.school
@@ -943,7 +941,7 @@ class SubmitResultView(View):
             )
 
         messages.success(request, 'Result data saved successfully.')
-        return redirect('load-result')    
+        return redirect('load-result')
 
 class ResultListView(ListView):
     model = Result
@@ -1046,7 +1044,7 @@ class NominalRollListView(ListView):
         context = super().get_context_data(**kwargs)
         context['academic_years'] = AcademicYear.objects.all()
         return context
-    
+
 class Exam_ResultListView(ListView):
     model = Result
     template_name = 'exam_result_list.html'
@@ -1148,7 +1146,7 @@ class Exam_NominalRollListView(ListView):
         context = super().get_context_data(**kwargs)
         context['academic_years'] = AcademicYear.objects.all()
         return context
-    
+
 
 class COD_ResultListView(ListView):
     model = Result
