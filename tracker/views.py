@@ -1,26 +1,16 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
-from django.urls import reverse_lazy, reverse
+from django.urls import reverse_lazy
 from django.contrib.auth import logout  # Import the logout function
-from django.views.generic import DeleteView, ListView, FormView, DetailView
+from django.views.generic import DeleteView, ListView, FormView
 from django.conf import settings
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
-from django.utils import timezone
-from datetime import timedelta
-
-from django.db import transaction
-from django.http import JsonResponse
-from django.db import IntegrityError
-from django.contrib.auth.mixins import LoginRequiredMixin
 
 from django.http import Http404
 
 import re
-from django.core.exceptions import ValidationError
 import pandas as pd
-import random
-import string
 
 from django.db.models import Q
 
@@ -29,7 +19,7 @@ from .utils import generate_unique_complaint_code
 
 from .models import (
 Student, UnitOffering, Complaint, Course, YearOfStudy, AcademicYear, Semester, Lecturer,
-PasswordResetToken, NominalRoll, Result, Response, Unit, Lecturer, System_User, Department
+PasswordResetToken, NominalRoll, Result, Response, Unit, System_User, Department
 )
 
 from .forms import (
@@ -380,18 +370,11 @@ class Exam_DashboardView(View):
         # Get all departments in the school
         departments_in_school = Department.objects.all()
 
-        # Create a dictionary to store the count of responses by department
-        responses_by_department = {}
-
-        for department_in_school in departments_in_school:
-            # Count the number of responses approved by COD for the department
-            responses_count = Response.objects.filter(
-                unit_offering__unit__department=department_in_school,
-                approved_by_cod=True
-            ).count()
-
-            # Store the count of responses for the department
-            responses_by_department[department_in_school.department_name] = responses_count
+        # Count the total number of responses approved by COD across all departments
+        total_responses_count = Response.objects.filter(
+            unit_offering__unit__department__in=departments_in_school,
+            approved_by_cod=True
+        ).count()
 
         # List of courses in this department
         courses = Course.objects.filter(program__department=department)
@@ -401,7 +384,7 @@ class Exam_DashboardView(View):
             'total_lecturers_in_department': total_lecturers_in_department,
             'total_units_for_lecturer': total_units_for_lecturer,
             'related_complaints_count': related_complaints_count,
-            'responses_by_department': responses_by_department,  # Add the responses count by department here
+            'total_responses_count': total_responses_count,  # Add the total responses count here
             'last_name': lecturer.last_name,
             'user': user,
             'units': Unit.objects.filter(pk__in=unit_ids),
@@ -410,6 +393,7 @@ class Exam_DashboardView(View):
         }
 
         return render(request, 'exam_dashboard.html', context)
+
 
 class Lecturer_DashboardView(View):
     def get(self, request):
@@ -839,14 +823,6 @@ class DeleteResponseView(DeleteView):
         except Exception as e:
             messages.error(request, "Failed to delete response.")
             return redirect(self.success_url)
-
-from django.views import View
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from .forms import UploadFileForm
-from .models import Lecturer, Student, Unit, AcademicYear, NominalRoll, Result
-import pandas as pd
-
 
 class LoadNominalRollView(View):
     def get(self, request):
