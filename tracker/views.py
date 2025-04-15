@@ -723,6 +723,24 @@ class CODApproveResponseView(View):
     form_class = CODCommentForm
     template_name = 'cod_approve_response.html'
 
+    def get(self, request, response_id):
+        username = request.session.get('username')
+        if not username:
+            return redirect('login')
+
+        lecturer = Lecturer.objects.filter(username=username).first()
+        if not lecturer or lecturer.role != 'COD':
+            messages.error(request, "You do not have permission to access this page.")
+            return redirect('login')
+
+        response = Response.objects.filter(response_id=response_id).first()
+        if response and not response.approved_by_cod:
+            form = self.form_class()
+            return render(request, self.template_name, {'form': form, 'response': response})
+
+        messages.error(request, "This response has already been approved or does not exist.")
+        return redirect('cod-responses-list')
+
     def post(self, request, response_id):
         username = request.session.get('username')
         if not username:
@@ -745,6 +763,7 @@ class CODApproveResponseView(View):
             response.approved_by_cod = True
             response.save()
 
+            # Email details
             student = response.student
             full_name = f"{student.first_name} {student.last_name}"
             unit_code = response.unit_offering.unit.unit_code
@@ -755,16 +774,17 @@ class CODApproveResponseView(View):
                 f"have been recorded and approved by your Department Chairman.\n\n"
                 "Thank you for trusting Missing Mark Tracker."
             )
-            from_email = settings.EMAIL_HOST_USER  # Updated from DEFAULT_FROM_EMAILsettings.EMAIL_HOST_USER
+            from_email = settings.EMAIL_HOST_USER
             recipient_list = [student.email_address]
 
             send_mail(subject, message, from_email, recipient_list, fail_silently=False)
 
             messages.success(request, "Response approved and student notified successfully.")
             return redirect('cod-responses-list')
-        else:
-            messages.error(request, "There was an error with your submission.")
-            return render(request, self.template_name, {'form': form, 'response': response})
+
+        messages.error(request, "There was an error with your submission.")
+        return render(request, self.template_name, {'form': form, 'response': response})
+
 
 
 class ExamOfficerApprovedResponsesView(ListView):
