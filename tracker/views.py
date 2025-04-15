@@ -377,6 +377,22 @@ class Exam_DashboardView(View):
         # Complaints related to those unit offerings
         related_complaints_count = Complaint.objects.filter(assigned_lecturer=lecturer).count()
 
+        # Get all departments in the school
+        departments_in_school = Department.objects.all()
+
+        # Create a dictionary to store the count of responses by department
+        responses_by_department = {}
+
+        for department_in_school in departments_in_school:
+            # Count the number of responses approved by COD for the department
+            responses_count = Response.objects.filter(
+                unit_offering__unit__department=department_in_school,
+                approved_by_cod=True
+            ).count()
+
+            # Store the count of responses for the department
+            responses_by_department[department_in_school.department_name] = responses_count
+
         # List of courses in this department
         courses = Course.objects.filter(program__department=department)
 
@@ -385,6 +401,7 @@ class Exam_DashboardView(View):
             'total_lecturers_in_department': total_lecturers_in_department,
             'total_units_for_lecturer': total_units_for_lecturer,
             'related_complaints_count': related_complaints_count,
+            'responses_by_department': responses_by_department,  # Add the responses count by department here
             'last_name': lecturer.last_name,
             'user': user,
             'units': Unit.objects.filter(pk__in=unit_ids),
@@ -393,7 +410,7 @@ class Exam_DashboardView(View):
         }
 
         return render(request, 'exam_dashboard.html', context)
-    
+
 class Lecturer_DashboardView(View):
     def get(self, request):
         username = request.session.get('username')
