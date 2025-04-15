@@ -22,6 +22,8 @@ import pandas as pd
 import random
 import string
 
+from django.db.models import Q
+
 from django.contrib import messages
 from .utils import generate_unique_complaint_code
 
@@ -948,7 +950,7 @@ class SubmitResultView(View):
             )
 
         messages.success(request, 'Result data saved successfully.')
-        return redirect('load-result')
+        return redirect('load-result')    
 
 class ResultListView(ListView):
     model = Result
@@ -961,7 +963,10 @@ class ResultListView(ListView):
         lecturer = get_object_or_404(Lecturer, username=username)
         employee_no = lecturer.employee_no
 
-        offerings = UnitOffering.objects.filter(lecturer__employee_no=employee_no).select_related('unit', 'academic_year')
+        offerings = UnitOffering.objects.filter(
+            lecturer__employee_no=employee_no
+        ).select_related('unit', 'academic_year')
+
         allowed_units = {
             (offering.unit.unit_code, offering.academic_year.academic_year)
             for offering in offerings
@@ -982,17 +987,15 @@ class ResultListView(ListView):
         if unit_code:
             queryset = queryset.filter(unit_code__unit_code__icontains=unit_code)
         if reg_no:
-            queryset = queryset.filter(reg_no__icontains=reg_no)
+            queryset = queryset.filter(reg_no__reg_no__icontains=reg_no)
         if search:
             queryset = queryset.filter(
-                academic_year__academic_year__icontains=search
-            ) | queryset.filter(
-                unit_code__unit_code__icontains=search
-            ) | queryset.filter(
-                reg_no__icontains=search
+                Q(academic_year__academic_year__icontains=search) |
+                Q(unit_code__unit_code__icontains=search) |
+                Q(reg_no__reg_no__icontains=search)
             )
 
-        sort_field = self.request.GET.get('sort', 'reg_no')
+        sort_field = self.request.GET.get('sort', 'reg_no__reg_no')
         return queryset.order_by(sort_field)
 
     def get_context_data(self, **kwargs):
@@ -1011,7 +1014,10 @@ class NominalRollListView(ListView):
         lecturer = get_object_or_404(Lecturer, username=username)
         employee_no = lecturer.employee_no
 
-        offerings = UnitOffering.objects.filter(lecturer__employee_no=employee_no).select_related('unit', 'academic_year')
+        offerings = UnitOffering.objects.filter(
+            lecturer__employee_no=employee_no
+        ).select_related('unit', 'academic_year')
+
         allowed_units = {
             (offering.unit.unit_code, offering.academic_year.academic_year)
             for offering in offerings
@@ -1032,24 +1038,22 @@ class NominalRollListView(ListView):
         if unit_code:
             queryset = queryset.filter(unit_code__unit_code__icontains=unit_code)
         if reg_no:
-            queryset = queryset.filter(reg_no__icontains=reg_no)
+            queryset = queryset.filter(reg_no__reg_no__icontains=reg_no)
         if search:
             queryset = queryset.filter(
-                academic_year__academic_year__icontains=search
-            ) | queryset.filter(
-                unit_code__unit_code__icontains=search
-            ) | queryset.filter(
-                reg_no__icontains=search
+                Q(academic_year__academic_year__icontains=search) |
+                Q(unit_code__unit_code__icontains=search) |
+                Q(reg_no__reg_no__icontains=search)
             )
 
-        sort_field = self.request.GET.get('sort', 'reg_no')
+        sort_field = self.request.GET.get('sort', 'reg_no__reg_no')
         return queryset.order_by(sort_field)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['academic_years'] = AcademicYear.objects.all()
         return context
-
+    
 class Exam_ResultListView(ListView):
     model = Result
     template_name = 'exam_result_list.html'
@@ -1061,7 +1065,10 @@ class Exam_ResultListView(ListView):
         lecturer = get_object_or_404(Lecturer, username=username)
         employee_no = lecturer.employee_no
 
-        offerings = UnitOffering.objects.filter(lecturer__employee_no=employee_no).select_related('unit', 'academic_year')
+        offerings = UnitOffering.objects.filter(
+            lecturer__employee_no=employee_no
+        ).select_related('unit', 'academic_year')
+
         allowed_units = {
             (offering.unit.unit_code, offering.academic_year.academic_year)
             for offering in offerings
@@ -1082,17 +1089,15 @@ class Exam_ResultListView(ListView):
         if unit_code:
             queryset = queryset.filter(unit_code__unit_code__icontains=unit_code)
         if reg_no:
-            queryset = queryset.filter(reg_no__icontains=reg_no)
+            queryset = queryset.filter(reg_no__reg_no__icontains=reg_no)
         if search:
             queryset = queryset.filter(
-                academic_year__academic_year__icontains=search
-            ) | queryset.filter(
-                unit_code__unit_code__icontains=search
-            ) | queryset.filter(
-                reg_no__icontains=search
+                Q(academic_year__academic_year__icontains=search) |
+                Q(unit_code__unit_code__icontains=search) |
+                Q(reg_no__reg_no__icontains=search)
             )
 
-        sort_field = self.request.GET.get('sort', 'reg_no')
+        sort_field = self.request.GET.get('sort', 'reg_no__reg_no')
         return queryset.order_by(sort_field)
 
     def get_context_data(self, **kwargs):
@@ -1111,7 +1116,10 @@ class Exam_NominalRollListView(ListView):
         lecturer = get_object_or_404(Lecturer, username=username)
         employee_no = lecturer.employee_no
 
-        offerings = UnitOffering.objects.filter(lecturer__employee_no=employee_no).select_related('unit', 'academic_year')
+        offerings = UnitOffering.objects.filter(
+            lecturer__employee_no=employee_no
+        ).select_related('unit', 'academic_year')
+
         allowed_units = {
             (offering.unit.unit_code, offering.academic_year.academic_year)
             for offering in offerings
@@ -1132,23 +1140,22 @@ class Exam_NominalRollListView(ListView):
         if unit_code:
             queryset = queryset.filter(unit_code__unit_code__icontains=unit_code)
         if reg_no:
-            queryset = queryset.filter(reg_no__icontains=reg_no)
+            queryset = queryset.filter(reg_no__reg_no__icontains=reg_no)
         if search:
             queryset = queryset.filter(
-                academic_year__academic_year__icontains=search
-            ) | queryset.filter(
-                unit_code__unit_code__icontains=search
-            ) | queryset.filter(
-                reg_no__icontains=search
+                Q(academic_year__academic_year__icontains=search) |
+                Q(unit_code__unit_code__icontains=search) |
+                Q(reg_no__reg_no__icontains=search)
             )
 
-        sort_field = self.request.GET.get('sort', 'reg_no')
+        sort_field = self.request.GET.get('sort', 'reg_no__reg_no')
         return queryset.order_by(sort_field)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['academic_years'] = AcademicYear.objects.all()
         return context
+    
 
 class COD_ResultListView(ListView):
     model = Result
@@ -1161,7 +1168,10 @@ class COD_ResultListView(ListView):
         lecturer = get_object_or_404(Lecturer, username=username)
         employee_no = lecturer.employee_no
 
-        offerings = UnitOffering.objects.filter(lecturer__employee_no=employee_no).select_related('unit', 'academic_year')
+        offerings = UnitOffering.objects.filter(
+            lecturer__employee_no=employee_no
+        ).select_related('unit', 'academic_year')
+
         allowed_units = {
             (offering.unit.unit_code, offering.academic_year.academic_year)
             for offering in offerings
@@ -1182,17 +1192,15 @@ class COD_ResultListView(ListView):
         if unit_code:
             queryset = queryset.filter(unit_code__unit_code__icontains=unit_code)
         if reg_no:
-            queryset = queryset.filter(reg_no__icontains=reg_no)
+            queryset = queryset.filter(reg_no__reg_no__icontains=reg_no)
         if search:
             queryset = queryset.filter(
-                academic_year__academic_year__icontains=search
-            ) | queryset.filter(
-                unit_code__unit_code__icontains=search
-            ) | queryset.filter(
-                reg_no__icontains=search
+                Q(academic_year__academic_year__icontains=search) |
+                Q(unit_code__unit_code__icontains=search) |
+                Q(reg_no__reg_no__icontains=search)
             )
 
-        sort_field = self.request.GET.get('sort', 'reg_no')
+        sort_field = self.request.GET.get('sort', 'reg_no__reg_no')
         return queryset.order_by(sort_field)
 
     def get_context_data(self, **kwargs):
@@ -1211,7 +1219,10 @@ class COD_NominalRollListView(ListView):
         lecturer = get_object_or_404(Lecturer, username=username)
         employee_no = lecturer.employee_no
 
-        offerings = UnitOffering.objects.filter(lecturer__employee_no=employee_no).select_related('unit', 'academic_year')
+        offerings = UnitOffering.objects.filter(
+            lecturer__employee_no=employee_no
+        ).select_related('unit', 'academic_year')
+
         allowed_units = {
             (offering.unit.unit_code, offering.academic_year.academic_year)
             for offering in offerings
@@ -1232,20 +1243,19 @@ class COD_NominalRollListView(ListView):
         if unit_code:
             queryset = queryset.filter(unit_code__unit_code__icontains=unit_code)
         if reg_no:
-            queryset = queryset.filter(reg_no__icontains=reg_no)
+            queryset = queryset.filter(reg_no__reg_no__icontains=reg_no)
         if search:
             queryset = queryset.filter(
-                academic_year__academic_year__icontains=search
-            ) | queryset.filter(
-                unit_code__unit_code__icontains=search
-            ) | queryset.filter(
-                reg_no__icontains=search
+                Q(academic_year__academic_year__icontains=search) |
+                Q(unit_code__unit_code__icontains=search) |
+                Q(reg_no__reg_no__icontains=search)
             )
 
-        sort_field = self.request.GET.get('sort', 'reg_no')
+        sort_field = self.request.GET.get('sort', 'reg_no__reg_no')
         return queryset.order_by(sort_field)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['academic_years'] = AcademicYear.objects.all()
         return context
+
