@@ -777,7 +777,7 @@ class CODApproveResponseView(View):
             from_email = settings.EMAIL_HOST_USER
             recipient_list = [student.email_address]
 
-            send_mail(subject, message, from_email, recipient_list, fail_silently=False)
+            #send_mail(subject, message, from_email, recipient_list, fail_silently=False) Never work in local host
 
             messages.success(request, "Response approved and student notified successfully.")
             return redirect('cod-responses-list')
